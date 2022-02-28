@@ -15,10 +15,22 @@ RUN apt-get update \
     python3-setuptools \
     python3-wheel \
     gcc \
-    libpq-dev
+    libpq-dev \
+    make
 
-RUN pip3 install \
-    wheel
+RUN python3 -m pip install pip --upgrade && \ 
+    python3 -m pip install \
+    wheel \
+#    nbcovert \
+    nbformat \
+    mig-meow \
+    papermill \
+    setuptools \
+    paramiko \
+    notebook-parameterizer \
+    ipykernel
 
-RUN pip3 install \
-    mig-meow
+RUN mkdir /scripts /results && \
+    cd /scripts
+
+COPY mig_meow/MANIFEST.in /usr/local/lib/python3.6/dist-packages/woop/

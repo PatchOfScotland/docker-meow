@@ -1,3 +1,8 @@
 # docker-meow
+mig_meow experiment container
 
-docker build --tag dockermeow .
+# To run
+
+docker build --tag dockerslurm .
+docker run -it -d --mount type=bind,source="$(pwd)"/scripts,target=/scripts/ --mount type=bind,source="$(pwd)"/results,target=/results/ dockermeow
+docker exec -it XXXX bash
