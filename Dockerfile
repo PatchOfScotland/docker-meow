@@ -33,4 +33,3 @@ RUN python3 -m pip install pip --upgrade && \
 RUN mkdir /scripts /results && \
     cd /scripts
 
-COPY mig_meow/MANIFEST.in /usr/local/lib/python3.6/dist-packages/woop/

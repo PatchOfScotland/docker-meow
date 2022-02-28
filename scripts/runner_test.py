@@ -10,6 +10,13 @@ import mig_meow as meow
 VGRID = 'test_vgrid'
 CREATE_TEXT = "create: "
 
+SINGLE_PATTERN_MULTIPLE_FILES = 'single_Pattern_multiple_files'
+SINGLE_PATTERN_SINGLE_FILE_PARALLEL = 'single_Pattern_single_file_parallel_jobs'
+SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL = 'single_Pattern_single_file_sequential_jobs'
+MULTIPLE_PATTERNS_SINGLE_FILE = 'multiple_Patterns_single_file'
+MULTIPLE_PATTERNS_MULTIPLE_FILES = 'multiple_Patterns_multiple_files'
+
+
 results_dir = f"{os.path.sep}results"
 
 def datetime_to_timestamp(date_time_obj):
@@ -27,6 +34,9 @@ def generate(file_count, file_path, file_type='.txt'):
     return first_filename, time.time() - start
 
 def cleanup(jobs, file_out, base_time, gen_time, execution=False):
+    if not jobs:
+        return
+
     job_timestamps = []
     for job in jobs:
         with open(f"/scripts/.workflow_processing/{job}/job.yml", 'r') as f_in:
@@ -107,15 +117,15 @@ def rmtree(directory):
             rmtree(os.path.join(root, dir))
     os.rmdir(directory)
 
-def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_counter, requested_jobs, runtime_start, signature='', execution=False):
-        
-    print('running test')
+def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_counter, requested_jobs, runtime_start, signature='', execution=False, print_logging=False):
+    if not os.path.exists(results_dir):
+        os.mkdir(results_dir)
 
+    if execution:
+        os.system("export LC_ALL=C.UTF-8")
+        os.system("export LANG=C.UTF-8")
 
     for run in range(repeats):
-
-        print('starting run')
-
         # Ensure complete cleanup from previous run
         for f in [".workflow_processing", "job_output", "test_vgrid"]:
             if os.path.exists(f):
@@ -123,30 +133,34 @@ def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_co
                 rmtree(f)
                 print(f'path {f} deleted')
 
-        print("Cleaned up previous files")
-
         base_dir = VGRID
         file_base = os.path.join(base_dir, 'testing')
         pathlib.Path(file_base).mkdir(parents=True, exist_ok=True)
 
+        num_workers = 0
+        if execution:
+            num_workers = 1
+
         runner = meow.WorkflowRunner(
             VGRID,
-            0,
+            num_workers,
             patterns=patterns,
             recipes=recipes,
             daemon=True,
             start_workers=False,
             retro_active_jobs=False,
-            print_logging=False,
-            file_logging=False
+            print_logging=print_logging,
+            file_logging=False,
+            wait_time=1
         )
-
-        print('created runner')
 
         # Let setup complete
         setting_up = 1
         setup_count = 0
         sleepy_time = 1
+        if execution:
+            runner.start_workers()
+
         while setting_up:
             time.sleep(sleepy_time)
 
@@ -168,42 +182,54 @@ def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_co
                     runner.add_recipe(recipes[r])
             setup_count+=1
 
-        print('setup complete')
-
         # Generate triggering files
-        first_filename, duration = generate(files_count, file_base +"/file_")
-
-        print('generated files')
+        first_filename, generation_duration = generate(files_count, file_base +"/file_")
 
         getting_jobs = 1
         miss_count = 0
         previous_job_count = -1
-        while getting_jobs:
-            time.sleep(1)
-            jobs = runner.check_queue()
-            if len(jobs) >= expected_job_count:
-                getting_jobs = 0
-            else:
+        if execution:
+            miss_target = 30
+            total_jobs_found = 0
+            while getting_jobs:
+                time.sleep(1)
+                jobs = runner.check_queue()
+                print(f'Jobs: {str(previous_job_count)} {str(len(jobs))} {str(total_jobs_found)}')
+                if previous_job_count == len(jobs):
+                    miss_count+=1
+                    if miss_count == miss_target:
+                        getting_jobs = 0
+                else:
+                    if previous_job_count < len(jobs):
+                        total_jobs_found += len(jobs)
+                    miss_count = 0
+                previous_job_count = len(jobs)
+        
+            print(f'Job queue settled at: {str(total_jobs_found)}')
+
+            jobs = runner.get_all_jobs()
+
+        else:
+            miss_target = 10
+            while getting_jobs:
+                time.sleep(1)
+                jobs = runner.check_queue()
                 print(f'Jobs: {str(previous_job_count)} {str(len(jobs))}')
                 if previous_job_count == len(jobs):
                     miss_count+=1
-                    if miss_count == 20:
-                        print(f'Job queue miseed at: {str(len(jobs))}/{str(expected_job_count)}')
+                    if miss_count == miss_target:
                         getting_jobs = 0
                 else:
                     miss_count = 0
                 previous_job_count = len(jobs)
 
-        print(f'got jobs {len(jobs)}')
+            print(f'Job queue settled at: {str(len(jobs))}')
 
         results_path = os.path.join(results_dir, signature, str(expected_job_count), str(run), 'results.txt')
 
-        print(f'gathered results')
+        cleanup(jobs, results_path, first_filename, generation_duration, execution=execution)
 
-        total_time = cleanup(jobs, results_path, first_filename, duration, execution=execution)
-
-        print(f'cleaned up')
-
+        # Leave some sleeps here, as can take a wee bit in the background
         time.sleep(3)
         runner.stop_runner(clear_jobs=True)
         time.sleep(3)
@@ -212,16 +238,25 @@ def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_co
 
     collate_results(os.path.join(results_dir, signature, str(expected_job_count)))
 
-def no_execution_tests():
-    start=2500
-    stop=2500
+def run_tests():
+    start=100
+    stop=1000
     jump=100
-    repeats=1
+    repeats=10
+
+    tests_to_run = [
+        SINGLE_PATTERN_MULTIPLE_FILES,
+        MULTIPLE_PATTERNS_SINGLE_FILE,
+        SINGLE_PATTERN_SINGLE_FILE_PARALLEL,
+        # These tests take ages, run them over a weeked
+        MULTIPLE_PATTERNS_MULTIPLE_FILES,
+        SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL
+    ]
 
     requested_jobs=0
     jobs_count = start
     while jobs_count <= stop:
-        requested_jobs += jobs_count * repeats * 4
+        requested_jobs += jobs_count * repeats * len(tests_to_run)
         jobs_count += jump
     print(f"requested_jobs: {requested_jobs}")
 
@@ -233,102 +268,138 @@ def no_execution_tests():
 
         print('starting')
 
-        single_boring_pattern = meow.Pattern('pattern_one')
-        single_boring_pattern.add_single_input('input', 'testing/*')
-        single_boring_pattern.add_recipe('recipe_one')
+        if SINGLE_PATTERN_MULTIPLE_FILES in tests_to_run:
+            single_boring_pattern = meow.Pattern('pattern_one')
+            single_boring_pattern.add_single_input('input', 'testing/*')
+            single_boring_pattern.add_recipe('recipe_one')
 
-        patterns = {
-            single_boring_pattern.name: single_boring_pattern
-        }
+            patterns = {
+                single_boring_pattern.name: single_boring_pattern
+            }
 
-        single_recipe = meow.register_recipe('test.ipynb', 'recipe_one')
-        
-        recipes = {
-            single_recipe['name']: single_recipe
-        }
+            single_recipe = meow.register_recipe('test.ipynb', 'recipe_one')
+            
+            recipes = {
+                single_recipe['name']: single_recipe
+            }
 
-        run_test(
-            patterns, 
-            recipes, 
-            jobs_count, 
-            jobs_count,
-            repeats, 
-            job_counter,
-            requested_jobs,
+            run_test(
+                patterns, 
+                recipes, 
+                jobs_count, 
+                jobs_count,
+                repeats, 
+                job_counter,
+                requested_jobs,
+                runtime_start,
+                signature=SINGLE_PATTERN_MULTIPLE_FILES
+            )
+
+            job_counter += jobs_count * repeats
+
+        if MULTIPLE_PATTERNS_SINGLE_FILE in tests_to_run:
+            patterns = {}
+            for i in range(jobs_count):
+                pattern = meow.Pattern(f"pattern_{i}")
+                pattern.add_single_input('input', 'testing/*')
+                pattern.add_recipe('recipe_one')
+                patterns[pattern.name] = pattern
+
+            run_test(
+                patterns, 
+                recipes, 
+                1, 
+                jobs_count,
+                repeats, 
+                job_counter,
+                requested_jobs,
+                runtime_start,
+                signature=MULTIPLE_PATTERNS_SINGLE_FILE
+            )
+
+            job_counter += jobs_count * repeats
+
+        if SINGLE_PATTERN_SINGLE_FILE_PARALLEL in tests_to_run:
+            single_exciting_pattern = meow.Pattern('pattern_one')
+            single_exciting_pattern.add_single_input('input', f'testing/*')
+            single_exciting_pattern.add_recipe('recipe_one')
+            single_exciting_pattern.add_param_sweep('var', {'increment': 1, 'start': 1, 'stop': jobs_count})
+            patterns = {single_exciting_pattern.name: single_exciting_pattern}
+
+            run_test(
+                patterns, 
+                recipes, 
+                1, 
+                jobs_count,
+                repeats, 
+                job_counter,
+                requested_jobs,
+                runtime_start,
+                signature=SINGLE_PATTERN_SINGLE_FILE_PARALLEL
+            )
+
+            job_counter += jobs_count * repeats
+
+        if MULTIPLE_PATTERNS_MULTIPLE_FILES in tests_to_run:
+            patterns = {}
+            for i in range(jobs_count):
+                pattern = meow.Pattern(f"pattern_{i}")
+                pattern.add_single_input('input', f'testing/file_{i}.txt')
+                pattern.add_recipe('recipe_one')
+                patterns[pattern.name] = pattern
+
+            run_test(
+                patterns, 
+                recipes, 
+                jobs_count, 
+                jobs_count,
+                repeats, 
+                job_counter,
+                requested_jobs,
             runtime_start,
-            signature=f"single_Pattern_multiple_files"
-        )
+                signature=MULTIPLE_PATTERNS_MULTIPLE_FILES
+            )
 
-        job_counter += jobs_count * repeats
+            job_counter += jobs_count * repeats
 
-        patterns = {}
-        for i in range(jobs_count):
-            pattern = meow.Pattern(f"pattern_{i}")
-            pattern.add_single_input('input', 'testing/*')
-            pattern.add_recipe('recipe_one')
-            patterns[pattern.name] = pattern
+        if SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL in tests_to_run:
+            single_repeating_pattern = meow.Pattern('pattern_one')
+            single_repeating_pattern.add_single_input('INPUT_FILE', f'testing/*')
+            single_repeating_pattern.add_recipe('recipe_two')
+            single_repeating_pattern.add_variable('MAX_COUNT', jobs_count)
 
-        run_test(
-            patterns, 
-            recipes, 
-            1, 
-            jobs_count,
-            repeats, 
-            job_counter,
-            requested_jobs,
-            runtime_start,
-            signature=f"multiple_Patterns_single_file"
-        )
+            patterns = {
+                single_repeating_pattern.name: single_repeating_pattern
+            }
 
-        job_counter += jobs_count * repeats
+            repeating_recipe = meow.register_recipe('sequential.ipynb', 'recipe_two')
+            
+            recipes = {
+                repeating_recipe['name']: repeating_recipe
+            }
 
-        patterns = {}
-        for i in range(jobs_count):
-            pattern = meow.Pattern(f"pattern_{i}")
-            pattern.add_single_input('input', f'testing/file_{i}.txt')
-            pattern.add_recipe('recipe_one')
-            patterns[pattern.name] = pattern
+            run_test(
+                patterns, 
+                recipes, 
+                1, 
+                jobs_count,
+                repeats, 
+                job_counter,
+                requested_jobs,
+                runtime_start,
+                signature=SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL,
+                execution=True,
+                print_logging=True
+            )
 
-
-        run_test(
-            patterns, 
-            recipes, 
-            jobs_count, 
-            jobs_count,
-            repeats, 
-            job_counter,
-            requested_jobs,
-            runtime_start,
-            signature=f"multiple_Patterns_multiple_files"
-        )
-
-        job_counter += jobs_count * repeats
-
-        single_exciting_pattern = meow.Pattern('pattern_one')
-        single_exciting_pattern.add_single_input('input', f'testing/*')
-        single_exciting_pattern.add_recipe('recipe_one')
-        single_exciting_pattern.add_param_sweep('var', {'increment': 1, 'start': 1, 'stop': jobs_count})
-        patterns = {single_exciting_pattern.name: single_exciting_pattern}
-
-        run_test(
-            patterns, 
-            recipes, 
-            1, 
-            jobs_count,
-            repeats, 
-            job_counter,
-            requested_jobs,
-            runtime_start,
-            signature=f"single_Pattern_single_file_sequential_jobs"
-        )
-
-        job_counter += jobs_count * repeats
+            job_counter += jobs_count * repeats
 
         jobs_count += jump
 
+
 if __name__ == '__main__':
     try:
-        no_execution_tests()
+        run_tests()
     except KeyboardInterrupt as ki:
         try:
             sys.exit(1)
