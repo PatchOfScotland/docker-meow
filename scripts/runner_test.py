@@ -240,17 +240,17 @@ def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_co
 
 def run_tests():
     start=100
-    stop=1000
+    stop=2500
     jump=100
     repeats=10
 
     tests_to_run = [
-        SINGLE_PATTERN_MULTIPLE_FILES,
-        MULTIPLE_PATTERNS_SINGLE_FILE,
-        SINGLE_PATTERN_SINGLE_FILE_PARALLEL,
+        #SINGLE_PATTERN_MULTIPLE_FILES,
+        #MULTIPLE_PATTERNS_SINGLE_FILE,
+        #SINGLE_PATTERN_SINGLE_FILE_PARALLEL,
         # These tests take ages, run them over a weeked
         MULTIPLE_PATTERNS_MULTIPLE_FILES,
-        SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL
+        #SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL
     ]
 
     requested_jobs=0
@@ -305,6 +305,12 @@ def run_tests():
                 pattern.add_recipe('recipe_one')
                 patterns[pattern.name] = pattern
 
+            single_recipe = meow.register_recipe('test.ipynb', 'recipe_one')
+            
+            recipes = {
+                single_recipe['name']: single_recipe
+            }
+
             run_test(
                 patterns, 
                 recipes, 
@@ -325,6 +331,12 @@ def run_tests():
             single_exciting_pattern.add_recipe('recipe_one')
             single_exciting_pattern.add_param_sweep('var', {'increment': 1, 'start': 1, 'stop': jobs_count})
             patterns = {single_exciting_pattern.name: single_exciting_pattern}
+
+            single_recipe = meow.register_recipe('test.ipynb', 'recipe_one')
+            
+            recipes = {
+                single_recipe['name']: single_recipe
+            }
 
             run_test(
                 patterns, 
@@ -347,6 +359,12 @@ def run_tests():
                 pattern.add_single_input('input', f'testing/file_{i}.txt')
                 pattern.add_recipe('recipe_one')
                 patterns[pattern.name] = pattern
+
+            single_recipe = meow.register_recipe('test.ipynb', 'recipe_one')
+            
+            recipes = {
+                single_recipe['name']: single_recipe
+            }
 
             run_test(
                 patterns, 
@@ -389,13 +407,14 @@ def run_tests():
                 runtime_start,
                 signature=SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL,
                 execution=True,
-                print_logging=True
+                print_logging=False
             )
 
             job_counter += jobs_count * repeats
 
         jobs_count += jump
 
+    print(f"All tests completed in: {str(time.time()-runtime_start)}")
 
 if __name__ == '__main__':
     try:
