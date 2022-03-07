@@ -5,7 +5,8 @@ import numpy
 
 import matplotlib.pyplot as pyplot
 
-RESULTS_FOLDER = "results"
+RESULTS_FOLDER = "/home/patch_of_scotland/Documents/Papers/Thesis/experiments/meow-threadripper"
+GRAPH_PATH = "mig_meow_overheads_threadripper.pdf"
 SCHEDULE_TEXT = 'Average schedule time: '
 
 if __name__ == '__main__':
@@ -45,6 +46,6 @@ if __name__ == '__main__':
     handles, labels = pyplot.gca().get_legend_handles_labels()
     legend_order = [2, 4, 0, 1, 3]
     pyplot.legend([handles[i] for i in legend_order], [labels[i] for i in legend_order])
-    pyplot.yscale('log')
-    pyplot.savefig("mig_meow_overheads.pdf", format='pdf', dpi=250, width=100, height=10)
+#    pyplot.yscale('log')
+    pyplot.savefig(GRAPH_PATH, format='pdf', dpi=250, width=100, height=10)
 
