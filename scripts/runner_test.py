@@ -16,6 +16,18 @@ SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL = 'single_Pattern_single_file_sequential_j
 MULTIPLE_PATTERNS_SINGLE_FILE = 'multiple_Patterns_single_file'
 MULTIPLE_PATTERNS_MULTIPLE_FILES = 'multiple_Patterns_multiple_files'
 
+REPEATS=1
+#JOBS_COUNTS=[10, 20]
+JOBS_COUNTS=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 250, 300, 400, 500]
+
+TESTS = [
+    SINGLE_PATTERN_MULTIPLE_FILES,
+    #MULTIPLE_PATTERNS_SINGLE_FILE,
+    #SINGLE_PATTERN_SINGLE_FILE_PARALLEL,
+    # These tests take ages, run them over a weeked
+    #MULTIPLE_PATTERNS_MULTIPLE_FILES,
+    #SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL
+]
 
 results_dir = f"{os.path.sep}results"
 
@@ -121,6 +133,7 @@ def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_co
     if not os.path.exists(results_dir):
         os.mkdir(results_dir)
 
+    # Does not work. left here as reminder
     if execution:
         os.system("export LC_ALL=C.UTF-8")
         os.system("export LANG=C.UTF-8")
@@ -239,36 +252,16 @@ def run_test(patterns, recipes, files_count, expected_job_count, repeats, job_co
     collate_results(os.path.join(results_dir, signature, str(expected_job_count)))
 
 def run_tests():
-    start=100
-    stop=2500
-    jump=100
-    repeats=10
-
-    tests_to_run = [
-        #SINGLE_PATTERN_MULTIPLE_FILES,
-        #MULTIPLE_PATTERNS_SINGLE_FILE,
-        #SINGLE_PATTERN_SINGLE_FILE_PARALLEL,
-        # These tests take ages, run them over a weeked
-        MULTIPLE_PATTERNS_MULTIPLE_FILES,
-        #SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL
-    ]
-
     requested_jobs=0
-    jobs_count = start
-    while jobs_count <= stop:
-        requested_jobs += jobs_count * repeats * len(tests_to_run)
-        jobs_count += jump
+    for job_count in JOBS_COUNTS:
+        requested_jobs += job_count * REPEATS * len(TESTS)
     print(f"requested_jobs: {requested_jobs}")
 
     runtime_start=time.time()
   
     job_counter=0
-    jobs_count = start
-    while jobs_count <= stop:
-
-        print('starting')
-
-        if SINGLE_PATTERN_MULTIPLE_FILES in tests_to_run:
+    for job_count in JOBS_COUNTS:
+        if SINGLE_PATTERN_MULTIPLE_FILES in TESTS:
             single_boring_pattern = meow.Pattern('pattern_one')
             single_boring_pattern.add_single_input('input', 'testing/*')
             single_boring_pattern.add_recipe('recipe_one')
@@ -286,20 +279,20 @@ def run_tests():
             run_test(
                 patterns, 
                 recipes, 
-                jobs_count, 
-                jobs_count,
-                repeats, 
+                job_count, 
+                job_count,
+                REPEATS, 
                 job_counter,
                 requested_jobs,
                 runtime_start,
                 signature=SINGLE_PATTERN_MULTIPLE_FILES
             )
 
-            job_counter += jobs_count * repeats
+            job_counter += job_count * REPEATS
 
-        if MULTIPLE_PATTERNS_SINGLE_FILE in tests_to_run:
+        if MULTIPLE_PATTERNS_SINGLE_FILE in TESTS:
             patterns = {}
-            for i in range(jobs_count):
+            for i in range(job_count):
                 pattern = meow.Pattern(f"pattern_{i}")
                 pattern.add_single_input('input', 'testing/*')
                 pattern.add_recipe('recipe_one')
@@ -315,21 +308,21 @@ def run_tests():
                 patterns, 
                 recipes, 
                 1, 
-                jobs_count,
-                repeats, 
+                job_count,
+                REPEATS, 
                 job_counter,
                 requested_jobs,
                 runtime_start,
                 signature=MULTIPLE_PATTERNS_SINGLE_FILE
             )
 
-            job_counter += jobs_count * repeats
+            job_counter += job_count * REPEATS
 
-        if SINGLE_PATTERN_SINGLE_FILE_PARALLEL in tests_to_run:
+        if SINGLE_PATTERN_SINGLE_FILE_PARALLEL in TESTS:
             single_exciting_pattern = meow.Pattern('pattern_one')
             single_exciting_pattern.add_single_input('input', f'testing/*')
             single_exciting_pattern.add_recipe('recipe_one')
-            single_exciting_pattern.add_param_sweep('var', {'increment': 1, 'start': 1, 'stop': jobs_count})
+            single_exciting_pattern.add_param_sweep('var', {'increment': 1, 'start': 1, 'stop': job_count})
             patterns = {single_exciting_pattern.name: single_exciting_pattern}
 
             single_recipe = meow.register_recipe('test.ipynb', 'recipe_one')
@@ -342,19 +335,19 @@ def run_tests():
                 patterns, 
                 recipes, 
                 1, 
-                jobs_count,
-                repeats, 
+                job_count,
+                REPEATS, 
                 job_counter,
                 requested_jobs,
                 runtime_start,
                 signature=SINGLE_PATTERN_SINGLE_FILE_PARALLEL
             )
 
-            job_counter += jobs_count * repeats
+            job_counter += job_count * REPEATS
 
-        if MULTIPLE_PATTERNS_MULTIPLE_FILES in tests_to_run:
+        if MULTIPLE_PATTERNS_MULTIPLE_FILES in TESTS:
             patterns = {}
-            for i in range(jobs_count):
+            for i in range(job_count):
                 pattern = meow.Pattern(f"pattern_{i}")
                 pattern.add_single_input('input', f'testing/file_{i}.txt')
                 pattern.add_recipe('recipe_one')
@@ -369,22 +362,22 @@ def run_tests():
             run_test(
                 patterns, 
                 recipes, 
-                jobs_count, 
-                jobs_count,
-                repeats, 
+                job_count, 
+                job_count,
+                REPEATS, 
                 job_counter,
                 requested_jobs,
             runtime_start,
                 signature=MULTIPLE_PATTERNS_MULTIPLE_FILES
             )
 
-            job_counter += jobs_count * repeats
+            job_counter += job_count * REPEATS
 
-        if SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL in tests_to_run:
+        if SINGLE_PATTERN_SINGLE_FILE_SEQUENTIAL in TESTS:
             single_repeating_pattern = meow.Pattern('pattern_one')
             single_repeating_pattern.add_single_input('INPUT_FILE', f'testing/*')
             single_repeating_pattern.add_recipe('recipe_two')
-            single_repeating_pattern.add_variable('MAX_COUNT', jobs_count)
+            single_repeating_pattern.add_variable('MAX_COUNT', job_count)
 
             patterns = {
                 single_repeating_pattern.name: single_repeating_pattern
@@ -400,8 +393,8 @@ def run_tests():
                 patterns, 
                 recipes, 
                 1, 
-                jobs_count,
-                repeats, 
+                job_count,
+                REPEATS, 
                 job_counter,
                 requested_jobs,
                 runtime_start,
@@ -410,9 +403,7 @@ def run_tests():
                 print_logging=False
             )
 
-            job_counter += jobs_count * repeats
-
-        jobs_count += jump
+            job_counter += job_count * REPEATS
 
     print(f"All tests completed in: {str(time.time()-runtime_start)}")
 

@@ -5,8 +5,8 @@ import numpy
 
 import matplotlib.pyplot as pyplot
 
-RESULTS_FOLDER = "/home/patch_of_scotland/Documents/Papers/Thesis/experiments/meow-threadripper"
-GRAPH_PATH = "mig_meow_overheads_threadripper.pdf"
+RESULTS_FOLDER = "/home/patch_of_scotland/Documents/Docker/docker-meow/results"
+GRAPH_PATH = "/home/patch_of_scotland/Documents/Docker/docker-meow/mig_meow_overheads_laptop.pdf"
 SCHEDULE_TEXT = 'Average schedule time: '
 
 if __name__ == '__main__':
@@ -44,8 +44,19 @@ if __name__ == '__main__':
     pyplot.title("mig_meow sheduling overheads")
 
     handles, labels = pyplot.gca().get_legend_handles_labels()
-    legend_order = [2, 4, 0, 1, 3]
-    pyplot.legend([handles[i] for i in legend_order], [labels[i] for i in legend_order])
-#    pyplot.yscale('log')
+#    legend_order = [2, 4, 0, 1, 3]
+#    pyplot.legend([handles[i] for i in legend_order], [labels[i] for i in legend_order])
+    pyplot.legend()
+    pyplot.yscale('log')
+
+    x_ticks = []
+    for tick in scheduling_x:
+        label = int(tick)
+        if tick <= 100 and tick % 20 == 0:
+            label = f"\n{int(tick)}"
+        x_ticks.append(label)
+
+    pyplot.xticks(scheduling_x, x_ticks)
+
     pyplot.savefig(GRAPH_PATH, format='pdf', dpi=250, width=100, height=10)
 

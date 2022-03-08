@@ -33,3 +33,5 @@ RUN python3 -m pip install pip --upgrade && \
 RUN mkdir /scripts /results && \
     cd /scripts
 
+ENV LC_ALL=C.UTF-8
+ENV export LANG=C.UTF-8
